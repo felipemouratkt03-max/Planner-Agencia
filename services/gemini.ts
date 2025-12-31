@@ -7,25 +7,28 @@ export const geminiService = {
    * Generates a professional, high-end marketing proposal.
    */
   async generatePremiumProposal(project: Project) {
-    // Initialize GoogleGenAI with the API key from environment variables
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const formattedDate = new Date(project.start_date).toLocaleDateString('pt-BR');
+    
     const prompt = `
       Atue como um Diretor de Estratégia Senior de uma agência de marketing digital de elite.
       Transforme o seguinte objetivo de projeto em um Documento Estratégico Premium.
       
       OBJETIVO DO PROJETO: "${project.objectives}"
       NOME DO PROJETO: "${project.name}"
-      DATA DE INÍCIO: "${project.start_date}"
+      DATA DE INÍCIO OFICIAL: "${formattedDate}"
       
       REGRAS DE FORMATAÇÃO CRÍTICAS:
       1. NÃO use asteriscos triplos (***). Use no máximo duplos (**) para negrito importante.
       2. O tom deve ser executivo, direto e sem "encheção de linguiça".
       3. Use títulos claros (H1 e H2).
-      4. O Cronograma de Execução DEVE ser uma TABELA Markdown simples com as colunas: "Etapa" | "Data Estimada" | "Objetivo".
-      5. Remova espaços em branco inúteis e caracteres especiais estranhos.
+      4. O documento DEVE conter uma seção clara: "## 📅 Cronograma e Início da Operação" mencionando a data de ${formattedDate}.
+      5. O Cronograma de Execução DEVE ser uma TABELA Markdown simples com as colunas: "Etapa" | "Data Estimada" | "Objetivo".
+      6. Remova espaços em branco inúteis e caracteres especiais estranhos.
       
       Estrutura:
       - # 💎 ESTRATÉGIA MASTER: [Nome do Projeto]
+      - ## 🚀 Início da Operação: ${formattedDate}
       - ## 🎯 Visão e KPIs de Sucesso
       - ## 💡 Pilares da Operação
       - ## 📅 Cronograma de Ativação (EM TABELA)
@@ -43,7 +46,6 @@ export const geminiService = {
    * Extracts actionable tasks with logical scheduling.
    */
   async extractTasksFromStrategy(strategyText: string) {
-    // Initialize GoogleGenAI with the API key from environment variables
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",

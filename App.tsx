@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentView, setCurrentView] = useState('projects');
+  const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -35,40 +36,60 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleUserSession = async (id: string, email: string) => {
-    const lowerEmail = email.toLowerCase();
-    
-    // Tenta buscar o perfil existente primeiro
-    const { data: existingProfile } = await supabase.from('profiles').select('*').eq('id', id).single();
+  const handleUserSession = async (authId: string, email: string) => {
+    const lowerEmail = email.toLowerCase().trim();
+    setIsLoading(true);
+    setAccessDenied(false);
 
+    // 1. Verificar Admin
     if (lowerEmail === ADMIN_EMAIL.toLowerCase()) {
       const adminProfile: UserProfile = {
-        id,
+        id: authId,
         email: lowerEmail,
-        full_name: existingProfile?.full_name || 'Jader Moura',
+        full_name: 'Jader Moura',
         role: 'admin'
       };
       setUser(adminProfile);
-      setIsLoading(false);
       await supabase.from('profiles').upsert(adminProfile);
+      setIsLoading(false);
       return;
     }
 
-    const clientProfile: UserProfile = {
-      id,
-      email: lowerEmail,
-      full_name: existingProfile?.full_name || email.split('@')[0].split(/[._-]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
-      role: 'client'
-    };
-    setUser(clientProfile);
-    if (!existingProfile) {
-      await supabase.from('profiles').upsert(clientProfile).catch(() => {});
+    // 2. Buscar Perfil via E-mail (O JWT do usuário logado permite este select nas novas políticas)
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', lowerEmail)
+      .maybeSingle();
+
+    if (!profile || error) {
+      console.warn("Acesso negado: Perfil não encontrado na gestão de clientes.", lowerEmail);
+      await supabase.auth.signOut();
+      setUser(null);
+      setAccessDenied(true);
+      setIsLoading(false);
+      return;
     }
+
+    // 3. Vincular ID se necessário
+    if (!profile.id || profile.id !== authId) {
+      await supabase.from('profiles').update({ id: authId }).eq('email', lowerEmail);
+    }
+
+    // 4. Iniciar Sessão Cliente
+    setUser({
+      id: authId,
+      email: lowerEmail,
+      full_name: profile.full_name,
+      role: 'client'
+    });
     setIsLoading(false);
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    setUser(null);
+    setAccessDenied(false);
   };
 
   if (isLoading) {
@@ -76,14 +97,14 @@ const App: React.FC = () => {
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <p className="text-slate-400 text-[10px] font-black tracking-widest uppercase">JM Digital Hub...</p>
+          <p className="text-slate-400 text-[10px] font-black tracking-widest uppercase">Autenticando JM Digital...</p>
         </div>
       </div>
     );
   }
 
   if (!user) {
-    return <Login />;
+    return <Login accessDenied={accessDenied} />;
   }
 
   return (
