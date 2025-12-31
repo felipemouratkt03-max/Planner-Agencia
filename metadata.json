@@ -1,0 +1,5 @@
+{
+  "name": "AgencyCore - Digital Marketing Project Management",
+  "description": "A professional internal tool for digital marketing agencies to manage projects, tasks, and client transparency, featuring AI-powered summaries and scheduling using Gemini.",
+  "requestFramePermissions": []
+}
